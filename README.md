@@ -1,3 +1,3 @@
 # Face
 
-Exploring the Heltech ESP32 OLED LoRA board.
+Exploring the Heltec ESP32 OLED LoRA board.

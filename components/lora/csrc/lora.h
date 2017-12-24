@@ -2,12 +2,22 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // Reorganised to run under the ESP32 OLED LoRa board by Heltec by Simon Waite.
 
-
 #ifndef LORA_H
 #define LORA_H
 
-#include <Arduino.h>
-#include <SPI.h>
+//#include <Arduino.h>
+//#include <SPI.h>
+// from spi_master example
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_system.h"
+#include "driver/spi_master.h"
+#include "soc/gpio_struct.h"
+#include "driver/gpio.h"
+
 
 //These are the default for the ESP32 Heltec board
 #define LORA_DEFAULT_SS_PIN    (18)
@@ -25,7 +35,9 @@
 //public:
 //LoRaClass();
 typedef struct {
-  SPISettings spiSettings;
+  spi_device_handle_t spi;
+  spi_bus_config_t buscfg;
+  spi_device_interface_config_t devcfg;
   int ss;
   int reset;
   int dio0;
@@ -49,8 +61,8 @@ typedef struct {
   float lora_packetSnr();
 
   // from Print
-  size_t lora_write(uint8_t byte);
-  size_t lora_write(const uint8_t *buffer, size_t size);
+  size_t lora_write_byte(uint8_t byte);
+  size_t lora_write_buffer(const uint8_t *buffer, size_t size);
 
   // from Stream
   int lora_available();
