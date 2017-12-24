@@ -1,5 +1,7 @@
 // Copyright (c) Sandeep Mistry. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Reorganised to run under the ESP32 OLED LoRA board by Heltech by Simon Waite.
+
 
 #ifndef LORA_H
 #define LORA_H
