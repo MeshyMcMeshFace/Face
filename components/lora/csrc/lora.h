@@ -34,7 +34,7 @@
 //class LoRaClass : public Stream {
 //public:
 //LoRaClass();
-typedef struct {
+typedef struct LoRa_struct {
   spi_device_handle_t spi;
   spi_bus_config_t buscfg;
   spi_device_interface_config_t devcfg;
@@ -44,7 +44,7 @@ typedef struct {
   int frequency;
   int packetIndex;
   int implicitHeaderMode;
-  void (*_onReceive)(int);
+  void (*onReceive)(int);
 } LoRa;
 //};
 
@@ -52,7 +52,8 @@ typedef struct {
   int lora_begin(long frequency);
   void lora_end();
 
-  int lora_beginPacket(int implicitHeader = false);
+  int lora_beginPacket_default();
+  int lora_beginPacket(int implicitHeader);
   int lora_endPacket();
 
   //int parsePacket(int size = 0);
@@ -89,16 +90,15 @@ typedef struct {
   void lora_enableCrc();
   void lora_disableCrc();
 
-  byte lora_random();
+  uint8_t lora_random();
 
   //void lora_setPins(int ss = LORA_DEFAULT_SS_PIN, int reset = LORA_DEFAULT_RESET_PIN, int dio0 = LORA_DEFAULT_DIO0_PIN);
   void lora_setPins_default();
   void lora_setPins(int ss , int reset , int dio0 );
   void lora_setSPIFrequency(uint32_t frequency);
 
-  void lora_dumpRegisters(Stream& out);
+  void lora_dumpRegisters();
 
-private:
   void lora_explicitHeaderMode();
   void lora_implicitHeaderMode();
 

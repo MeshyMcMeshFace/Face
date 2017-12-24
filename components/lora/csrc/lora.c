@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // Reorganised to run under the ESP32 OLED LoRA board by Heltec by Simon Waite.
 
+#include "arduino.h"
 #include <lora.h>
 #include <esp_log.h>
 
@@ -66,7 +67,7 @@ void lora_init()
   lora.frequency=0;
   lora.packetIndex=0;
   lora.implicitHeaderMode=0;
-  lora_onReceive(NULL)
+  lora_onReceive(NULL);
   // overide Stream timeout value
   //setTimeout(0);
 }
@@ -83,22 +84,21 @@ int lora_begin(long frequency)
   // set things up...
   //void begin(int8_t sck=-1, int8_t miso=-1, int8_t mosi=-1, int8_t ss=-1);
   //SPI.begin(5, 19, 27, 18);
+  
+  lora.buscfg.miso_io_num=PIN_NUM_MISO;
+  lora.buscfg.mosi_io_num=PIN_NUM_MOSI;
+  lora.buscfg.sclk_io_num=PIN_NUM_CLK;
+  lora.buscfg.quadwp_io_num=-1;
+  lora.buscfg.quadhd_io_num=-1;
+    
+  //Initialize the SPI bus
+  ESP_LOGD(TAG,"lora_begin - init SPI");
 
-  lora.buscfg={
-        .miso_io_num=PIN_NUM_MISO,
-        .mosi_io_num=PIN_NUM_MOSI,
-        .sclk_io_num=PIN_NUM_CLK,
-        .quadwp_io_num=-1,
-        .quadhd_io_num=-1
-    };
-    //Initialize the SPI bus
-      ESP_LOGD(TAG,"lora_begin - init SPI");
-
-    esp_err_t ret=spi_bus_initialize(HSPI_HOST, &lora.buscfg, 1);
-    assert(ret==ESP_OK);
-    //Attach the radio to the SPI bus
-    ret=spi_bus_add_device(HSPI_HOST, &lora.devcfg, &lora.spi);
-    assert(ret==ESP_OK);
+  esp_err_t ret=spi_bus_initialize(HSPI_HOST, &lora.buscfg, 1);
+  assert(ret==ESP_OK);
+  //Attach the radio to the SPI bus
+  ret=spi_bus_add_device(HSPI_HOST, &lora.devcfg, &lora.spi);
+  assert(ret==ESP_OK);
 /* ARDUINO STUFF
   // setup pins
   pinMode(lora.ss, OUTPUT);
@@ -135,7 +135,7 @@ int lora_begin(long frequency)
   lora_writeRegister(REG_FIFO_RX_BASE_ADDR, 0);
 
   // set LNA boost
-  lora_writeRegister(REG_LNA, readRegister(REG_LNA) | 0x03);
+  lora_writeRegister(REG_LNA, lora_readRegister(REG_LNA) | 0x03);
 
   // set auto AGC
   lora_writeRegister(REG_MODEM_CONFIG_3, 0x04);
@@ -157,7 +157,10 @@ void lora_end()
   // stop SPI
   //ARDUINO STUFF SPI.end();
 }
-
+int lora_beginPacket_default()
+{
+  return lora_beginPacket(false);
+}
 int lora_beginPacket(int implicitHeader)
 {
   // put in standby mode
@@ -182,7 +185,8 @@ int lora_endPacket()
   lora_writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_TX);
 
   // wait for TX done
-  while ((readRegister(REG_IRQ_FLAGS) & IRQ_TX_DONE_MASK) == 0) {
+  while ((lora_readRegister(REG_IRQ_FLAGS) & IRQ_TX_DONE_MASK) == 0) {
+    //TODO: ESP32/FreeRTOS specific task-sleep?
     yield();
   }
 
@@ -195,18 +199,18 @@ int lora_endPacket()
 int lora_parsePacket(int size)
 {
   int packetLength = 0;
-  int irqFlags = readRegister(REG_IRQ_FLAGS);
+  int irqFlags = lora_readRegister(REG_IRQ_FLAGS);
 
   if (size > 0) {
     lora_implicitHeaderMode();
 
-    writeRegister(REG_PAYLOAD_LENGTH, size & 0xff);
+    lora_writeRegister(REG_PAYLOAD_LENGTH, size & 0xff);
   } else {
     lora_explicitHeaderMode();
   }
 
   // clear IRQ's
-  writeRegister(REG_IRQ_FLAGS, irqFlags);
+  lora_writeRegister(REG_IRQ_FLAGS, irqFlags);
 
   if ((irqFlags & IRQ_RX_DONE_MASK) && (irqFlags & IRQ_PAYLOAD_CRC_ERROR_MASK) == 0) {
     // received a packet
@@ -214,16 +218,16 @@ int lora_parsePacket(int size)
 
     // read packet length
     if (lora.implicitHeaderMode) {
-      packetLength = readRegister(REG_PAYLOAD_LENGTH);
+      packetLength = lora_readRegister(REG_PAYLOAD_LENGTH);
     } else {
-      packetLength = readRegister(REG_RX_NB_BYTES);
+      packetLength = lora_readRegister(REG_RX_NB_BYTES);
     }
 
     // set FIFO address to current RX address
     lora_writeRegister(REG_FIFO_ADDR_PTR, lora_readRegister(REG_FIFO_RX_CURRENT_ADDR));
 
     // put in standby mode
-    idle();
+    lora_idle();
   } else if (lora_readRegister(REG_OP_MODE) != (MODE_LONG_RANGE_MODE | MODE_RX_SINGLE)) {
     // not currently in RX mode
 
@@ -254,7 +258,7 @@ size_t lora_write_byte(uint8_t byte)
 
 size_t lora_write_buffer(const uint8_t *buffer, size_t size)
 {
-  int currentLength = readRegister(REG_PAYLOAD_LENGTH);
+  int currentLength = lora_readRegister(REG_PAYLOAD_LENGTH);
 
   // check size
   if ((currentLength + size) > MAX_PKT_LENGTH) {
@@ -306,10 +310,6 @@ int lora_peek()
   return b;
 }
 
-void lora_flush()
-{
-}
-
 void lora_onReceive(void(*callback)(int))
 {
   lora.onReceive = callback;
@@ -317,7 +317,7 @@ void lora_onReceive(void(*callback)(int))
   if (callback) {
     lora_writeRegister(REG_DIO_MAPPING_1, 0x00);
 // TODO: ARDUINO SPECIFIC
-    attachInterrupt(digitalPinToInterrupt(lora.dio0), lora_onDio0Rise, RISING);
+    attachInterrupt(digitalPinToInterrupt(lora.dio0), lora_handleDio0Rise, RISING);
   } else {
     detachInterrupt(digitalPinToInterrupt(lora.dio0));
   }
@@ -359,7 +359,7 @@ void lora_setTxPower(int level, int outputPin)
       level = 14;
     }
 
-    writeRegister(REG_PA_CONFIG, 0x70 | level);
+    lora_writeRegister(REG_PA_CONFIG, 0x70 | level);
   } else {
     // PA BOOST
     if (level < 2) {
@@ -484,12 +484,11 @@ void lora_setSPIFrequency(uint32_t frequency)
 
 void lora_dumpRegisters()
 {
+  printf("lora_dumpRegisters():");
   for (int i = 0; i < 128; i++) {
-    out.print("0x");
-    out.print(i, HEX);
-    out.print(": 0x");
-    out.println(lora_readRegister(i), HEX);
+    printf("\t0x%02x: 0x%02x\n",i,lora_readRegister(i));
   }
+  printf("\t*** END\n");
 }
 
 void lora_explicitHeaderMode()
@@ -511,7 +510,7 @@ void lora_handleDio0Rise()
   int irqFlags = lora_readRegister(REG_IRQ_FLAGS);
 
   // clear IRQ's
-  writeRegister(REG_IRQ_FLAGS, irqFlags);
+  lora_writeRegister(REG_IRQ_FLAGS, irqFlags);
 
   if ((irqFlags & IRQ_PAYLOAD_CRC_ERROR_MASK) == 0) {
     // received a packet
@@ -547,20 +546,15 @@ uint8_t lora_singleTransfer(uint8_t address, uint8_t value)
   //TODO: to fix...
   uint8_t response;
 
-  digitalWrite(_ss, LOW);
+  digitalWrite(lora.ss, LOW);
 
   SPI.beginTransaction(_spiSettings);
   SPI.transfer(address);
   response = SPI.transfer(value);
   SPI.endTransaction();
 
-  digitalWrite(_ss, HIGH);
+  digitalWrite(lora.ss, HIGH);
 
   return response;
-}
-
-void lora_onDio0Rise()
-{
-  lora_handleDio0Rise();
 }
 
