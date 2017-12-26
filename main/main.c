@@ -6,6 +6,7 @@
 
 #include "heltec_wifi_oled_esp32_SSD1306_i2c.h"
 
+#include "lora.h"
 
 void app_main()
 {
@@ -27,14 +28,33 @@ void app_main()
     printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
             (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
-    for (int i = 10; i >= 0; i--) {
-        printf("Restarting in %d seconds...\n", i);
+    printf("Initialising LoRa...\n");
+    lora_init();
+    printf("Begin Lora.... 869.500MHz\n");
+    lora_begin(8695E5);
+    printf("Dump registers.\n");
+    lora_dumpRegisters();
+    printf("\n\n\n");
+    printf("Sending First Packet\n");
+    lora_beginPacket_default();
+    lora_printf("HELLO");
+    lora_endPacket();
+
+    //printf("Send initial message:\n");
+    //lora_printf("This is a test. This is a test.\n");
+
+    for (int i = 100; i >= 0; i--) {
+        printf("Restarting in %d ...\n", i);
         gfx_clear();
-        gfx_printf("Rebooting in: %2d",i);
+        gfx_printf("Rebooting in: %04d.\n",i);
+        lora_beginPacket_default();
+        lora_printf("Countdown %04d.\n");
+        lora_endPacket();
         gfx_bargraph(10-i,10);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
     printf("Restarting now.\n");
     fflush(stdout);
+    lora_end();
     esp_restart();
 }

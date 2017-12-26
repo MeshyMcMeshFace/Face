@@ -18,6 +18,9 @@
 #include "soc/gpio_struct.h"
 #include "driver/gpio.h"
 
+#include <stdarg.h>
+#include <string.h>
+#include "arduino.h"
 
 //These are the default for the ESP32 Heltec board
 #define LORA_DEFAULT_SS_PIN    (18)
@@ -26,6 +29,7 @@
 //#define LORA_DEFAULT_SS_PIN    10
 //#define LORA_DEFAULT_RESET_PIN 9
 //#define LORA_DEFAULT_DIO0_PIN  2
+#define SPI_FREQ (8E6)
 
 // TODO: would this be correct?
 #define PA_OUTPUT_RFO_PIN      0
@@ -35,13 +39,17 @@
 //public:
 //LoRaClass();
 typedef struct LoRa_struct {
-  spi_device_handle_t spi;
-  spi_bus_config_t buscfg;
+  spi_t *spi;
+  spi_device_handle_t *spi_handle;
+  //spi_bus_config_t buscfg;
   spi_device_interface_config_t devcfg;
   int ss;
   int reset;
   int dio0;
   int frequency;
+  int spi_freq;
+  bool spifreq_changed;
+  int div;
   int packetIndex;
   int implicitHeaderMode;
   void (*onReceive)(int);
@@ -62,6 +70,7 @@ typedef struct LoRa_struct {
   float lora_packetSnr();
 
   // from Print
+  size_t lora_printf(char *format, ...);
   size_t lora_write_byte(uint8_t byte);
   size_t lora_write_buffer(const uint8_t *buffer, size_t size);
 

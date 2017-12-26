@@ -3,8 +3,8 @@
 // Reorganised to run under the ESP32 OLED LoRA board by Heltec by Simon Waite.
 
 #include "arduino.h"
-#include <lora.h>
-#include <esp_log.h>
+#include "lora.h"
+#include "esp_log.h"
 
 // registers
 #define REG_FIFO                 0x00
@@ -79,48 +79,56 @@ void lora_init()
 
 int lora_begin(long frequency)
 {
-    ESP_LOGD(TAG,"lora_begin %ld",frequency);
+  printf("lora_begin\n");
+  ESP_LOGD(TAG,"lora_begin %ld",frequency);
 
   // set things up...
   //void begin(int8_t sck=-1, int8_t miso=-1, int8_t mosi=-1, int8_t ss=-1);
   //SPI.begin(5, 19, 27, 18);
   
-  lora.buscfg.miso_io_num=PIN_NUM_MISO;
-  lora.buscfg.mosi_io_num=PIN_NUM_MOSI;
-  lora.buscfg.sclk_io_num=PIN_NUM_CLK;
-  lora.buscfg.quadwp_io_num=-1;
-  lora.buscfg.quadhd_io_num=-1;
+  //lora.buscfg.miso_io_num=PIN_NUM_MISO;
+  //lora.buscfg.mosi_io_num=PIN_NUM_MOSI;
+  //lora.buscfg.sclk_io_num=PIN_NUM_CLK;
+  //lora.buscfg.quadwp_io_num=-1;
+  //lora.buscfg.quadhd_io_num=-1;
     
   //Initialize the SPI bus
   ESP_LOGD(TAG,"lora_begin - init SPI");
-
+/*
   esp_err_t ret=spi_bus_initialize(HSPI_HOST, &lora.buscfg, 1);
   assert(ret==ESP_OK);
   //Attach the radio to the SPI bus
-  ret=spi_bus_add_device(HSPI_HOST, &lora.devcfg, &lora.spi);
+  ret=spi_bus_add_device(HSPI_HOST, &lora.devcfg, lora.spi_handle);
   assert(ret==ESP_OK);
-/* ARDUINO STUFF
-  // setup pins
-  pinMode(lora.ss, OUTPUT);
-  // set SS high
-  digitalWrite(_ss, HIGH);
-
-  if (lora.reset != -1) {
-    pinMode(_reset, OUTPUT);
-
-    // perform reset
-    digitalWrite(_reset, LOW);
+*/
+// select device
+  pinMode(lora.ss,OUTPUT);
+  digitalWrite(lora.ss,HIGH);
+  if(lora.reset != -1) {
+    pinMode(lora.reset,OUTPUT);
+    digitalWrite(lora.reset, LOW);
     delay(10);
-    digitalWrite(_reset, HIGH);
+    digitalWrite(lora.reset, HIGH);
     delay(10);
   }
-*/
+
   // start SPI
   // ARDUINO STUFF: SPI.begin();
+  lora.spi_freq = SPI_FREQ;
+  lora.div = spiFrequencyToClockDiv(lora.spi_freq);
+  lora.spi = spiStartBus(VSPI, lora.div, SPI_MODE0, SPI_MSBFIRST);
+
+printf("lora.div = %d\n",lora.div);
+printf("lora.spi = %p\n",lora.spi);
+
+  spiAttachSCK( lora.spi, PIN_NUM_CLK);
+  spiAttachMISO(lora.spi, PIN_NUM_MISO);
+  spiAttachMOSI(lora.spi, PIN_NUM_MOSI);
 
   // check version
   uint8_t version = lora_readRegister(REG_VERSION);
   if (version != 0x12) {
+    printf("VERSION %02x != 0x12!!!\n",version);
     return 0;
   }
 
@@ -151,6 +159,8 @@ int lora_begin(long frequency)
 
 void lora_end()
 {
+    printf("lora_end\n");
+
   // put in sleep mode
   lora_sleep();
 
@@ -163,6 +173,7 @@ int lora_beginPacket_default()
 }
 int lora_beginPacket(int implicitHeader)
 {
+    printf("lora_beginPacket: %s\n", implicitHeader  ? "true" : "false");
   // put in standby mode
   lora_idle();
 
@@ -181,6 +192,7 @@ int lora_beginPacket(int implicitHeader)
 
 int lora_endPacket()
 {
+  printf("lora_endPacket\n");
   // put in TX mode
   lora_writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_TX);
 
@@ -198,6 +210,7 @@ int lora_endPacket()
 
 int lora_parsePacket(int size)
 {
+  printf("lora_parsePacket: size = %d\n",size);
   int packetLength = 0;
   int irqFlags = lora_readRegister(REG_IRQ_FLAGS);
 
@@ -250,7 +263,23 @@ float lora_packetSnr()
 {
   return ((int8_t)lora_readRegister(REG_PKT_SNR_VALUE)) * 0.25;
 }
+size_t lora_printf(char *format, ...) {
+    va_list args;
+    char *str;
 
+    va_start (args, format);
+    int n = vasprintf(&str, format, args);
+    va_end (args);
+
+    // error? then bail early
+    if(n<=0)
+        return 0;
+
+    // now that we have a 'printf' let's get it out to the oled.
+    size_t ret = lora_write_buffer((uint8_t *)str,n);
+    free(str);
+    return ret;
+}
 size_t lora_write_byte(uint8_t byte)
 {
   return lora_write_buffer(&byte, sizeof(byte));
@@ -278,11 +307,15 @@ size_t lora_write_buffer(const uint8_t *buffer, size_t size)
 
 int lora_available()
 {
+   printf("lora_available:\n");
+
   return (lora_readRegister(REG_RX_NB_BYTES) - lora.packetIndex);
 }
 
 int lora_read()
 {
+     printf("lora_read:\n");
+
   if (!lora_available()) {
     return -1;
   }
@@ -294,6 +327,8 @@ int lora_read()
 
 int lora_peek()
 {
+       printf("lora_peek:\n");
+
   if (!lora_available()) {
     return -1;
   }
@@ -312,6 +347,8 @@ int lora_peek()
 
 void lora_onReceive(void(*callback)(int))
 {
+       printf("lora_onReceive:\n");
+
   lora.onReceive = callback;
 
   if (callback) {
@@ -325,6 +362,8 @@ void lora_onReceive(void(*callback)(int))
 
 void lora_receive(int size)
 {
+       printf("lora_receive: size=%d\n",size);
+
   if (size > 0) {
     lora_implicitHeaderMode();
 
@@ -338,11 +377,15 @@ void lora_receive(int size)
 
 void lora_idle()
 {
+       printf("lora_idle:\n");
+
   lora_writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_STDBY);
 }
 
 void lora_sleep()
 {
+       printf("lora_sleep:\n");
+
   lora_writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_SLEEP);
 }
 void lora_setTxPower_default(int level)
@@ -374,6 +417,8 @@ void lora_setTxPower(int level, int outputPin)
 
 void lora_setFrequency(long frequency)
 {
+       printf("lora_setFrequency: %ld\n",frequency);
+
   lora.frequency = frequency;
 
   uint64_t frf = ((uint64_t)frequency << 19) / 32000000;
@@ -385,6 +430,8 @@ void lora_setFrequency(long frequency)
 
 void lora_setSpreadingFactor(int sf)
 {
+       printf("lora_setSpreadingFactor: sf=%d\n",sf);
+
   if (sf < 6) {
     sf = 6;
   } else if (sf > 12) {
@@ -404,6 +451,8 @@ void lora_setSpreadingFactor(int sf)
 
 void lora_setSignalBandwidth(long sbw)
 {
+       printf("lora_setSignalBandwidth: sbw=%ld\n",sbw);
+
   int bw;
 
   if (sbw <= 7.8E3) {
@@ -433,6 +482,8 @@ void lora_setSignalBandwidth(long sbw)
 
 void lora_setCodingRate4(int denominator)
 {
+       printf("lora_setCodingRate4: %d\n",denominator);
+
   if (denominator < 5) {
     denominator = 5;
   } else if (denominator > 8) {
@@ -446,12 +497,16 @@ void lora_setCodingRate4(int denominator)
 
 void lora_setPreambleLength(long length)
 {
+       printf("lora_setPreambleLength: %ld\n",length);
+
   lora_writeRegister(REG_PREAMBLE_MSB, (uint8_t)(length >> 8));
   lora_writeRegister(REG_PREAMBLE_LSB, (uint8_t)(length >> 0));
 }
 
 void lora_setSyncWord(int sw)
 {
+       printf("lora_setSyncWord: %d\n",sw);
+
   lora_writeRegister(REG_SYNC_WORD, sw);
 }
 
@@ -479,7 +534,9 @@ void lora_setPins(int ss, int reset, int dio0)
 
 void lora_setSPIFrequency(uint32_t frequency)
 {
-  _spiSettings = SPISettings(frequency, MSBFIRST, SPI_MODE0);
+  lora.spi_freq = frequency;
+  lora.spifreq_changed = true;
+  //_spiSettings = SPISettings(frequency, MSBFIRST, SPI_MODE0);
 }
 
 void lora_dumpRegisters()
@@ -548,11 +605,17 @@ uint8_t lora_singleTransfer(uint8_t address, uint8_t value)
 
   digitalWrite(lora.ss, LOW);
 
-  SPI.beginTransaction(_spiSettings);
-  SPI.transfer(address);
-  response = SPI.transfer(value);
-  SPI.endTransaction();
-
+  //check if last freq changed
+  uint32_t cdiv = spiGetClockDiv(lora.spi);
+  if((lora.div != cdiv) || lora.spifreq_changed)
+  {
+    lora.spifreq_changed = false;
+    lora.div = spiFrequencyToClockDiv(lora.frequency);
+  }
+  // MSBFIRST, SPI_MODE0
+  spiTransaction(lora.spi,lora.div,SPI_MSBFIRST,SPI_MODE0);
+  response = spiTransferByteNL(lora.spi,value);
+  spiEndTransaction(lora.spi);
   digitalWrite(lora.ss, HIGH);
 
   return response;
