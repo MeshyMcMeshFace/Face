@@ -127,20 +127,41 @@ printf("lora.spi_freq = %d\n",lora.spi_freq);
 printf("lora.div = %d\n",lora.div);
 printf("lora.div 2 freq: %u\n",spiClockDivToFrequency(lora.div));
 
-  lora.spi = spiStartBus(VSPI, lora.div, SPI_MODE0, SPI_MSBFIRST);
-  if(! lora.spi)
-  {
-    printf("lora_begin: spi bus initialisation failed.\n");
+  //ARDUINO STUFF - lora.spi = spiStartBus(VSPI, lora.div, SPI_MODE0, SPI_MSBFIRST);
+printf("attaching CLK(%d), MISO(%d), and MOSI(%d) pins to spi bus.\n",PIN_NUM_CLK,PIN_NUM_MISO,PIN_NUM_MOSI);
+
+  lora.buscfg.sclk_io_num = PIN_NUM_CLK;
+  lora.buscfg.miso_io_num = PIN_NUM_MISO;
+  lora.buscfg.mosi_io_num = PIN_NUM_MOSI;
+  lora.buscfg.quadwp_io_num = -1; // not used
+  lora.buscfg.quadhd_io_num = -1; // not used
+  esp_err_t err= spi_bus_initialize(VSPI_HOST,lora.buscfg,1);
+printf("err = %d\n",err);
+  if(err != ESP_OK) {
+    printf("lora_begin: new spi bus initialisation failed.\n");
     return 0;
   }
 
-printf("lora.spi = %p\n",lora.spi);
-printf("attaching CLK(%d), MISO(%d), and MOSI(%d) pins to spi bus.\n",PIN_NUM_CLK,PIN_NUM_MISO,PIN_NUM_MOSI);
-
-  spiAttachSCK( lora.spi, PIN_NUM_CLK);
-  spiAttachMISO(lora.spi, PIN_NUM_MISO);
-  spiAttachMOSI(lora.spi, PIN_NUM_MOSI);
-
+  lora.devcfg.address_bits =0;
+  lora.devcfg.command_bits =0;
+  lora.devcfg.dummy_bits =0;
+  lora.devcfg.mode =0;
+  lora.devcfg.duty_cycle_pos =0;
+  lora.devcfg.cs_ena_posttrans=0;
+  lora.devcfg.cs_ena_pretrans=0;
+  lora.devcfg.clock_speed_hz =8E6;
+  lora.devcfg.spics_io_num =23;
+  lora.devcfg.flags=0;
+  lora.devcfg.queue_size =1;
+  lora.devcfg.pre_cb = NULL;
+  lora.devcfg.post_cb = NULL;
+printf("adding device to spi bus.\n");
+  err = spi_bus_add_device(VSPI_HOST,lora.devcfg,lora.spi_handle);
+  printf("err = %d\n",err);
+  if(err != ESP_OK) {
+    printf("lora_begin: new spi bus device initialisation failed.\n");
+    return 0;
+  }
   // check version
 printf("checking version");
   uint8_t version = lora_readRegister(REG_VERSION);
@@ -621,7 +642,7 @@ uint8_t lora_singleTransfer(uint8_t address, uint8_t value)
   uint8_t response;
 
   digitalWrite(lora.ss, LOW);
-
+/*
   //check if last freq changed
   uint32_t cdiv = spiGetClockDiv(lora.spi);
   if((lora.div != cdiv) || lora.spifreq_changed)
@@ -634,7 +655,13 @@ uint8_t lora_singleTransfer(uint8_t address, uint8_t value)
   response = spiTransferByteNL(lora.spi,value);
   spiEndTransaction(lora.spi);
   digitalWrite(lora.ss, HIGH);
+*/
+  spi_transaction_t t;
+  t.address = address;
+  t.command = 0;
+  t.flags
 
+  esp_err_t err = 
   return response;
 }
 

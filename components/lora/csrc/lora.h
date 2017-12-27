@@ -39,9 +39,9 @@
 //public:
 //LoRaClass();
 typedef struct LoRa_struct {
-  spi_t *spi;
+  //spi_t *spi;
   spi_device_handle_t *spi_handle;
-  //spi_bus_config_t buscfg;
+  spi_bus_config_t buscfg;
   spi_device_interface_config_t devcfg;
   int ss;
   int reset;
