@@ -64,7 +64,7 @@ void lora_init()
   lora.ss=LORA_DEFAULT_SS_PIN ;
   lora.reset=LORA_DEFAULT_RESET_PIN;
   lora.dio0=LORA_DEFAULT_DIO0_PIN;
-  lora.frequency=0;
+  lora.frequency=868E6; // set the lora frequency 
   lora.packetIndex=0;
   lora.implicitHeaderMode=0;
   lora_onReceive(NULL);
@@ -101,10 +101,15 @@ int lora_begin(long frequency)
   ret=spi_bus_add_device(HSPI_HOST, &lora.devcfg, lora.spi_handle);
   assert(ret==ESP_OK);
 */
+  
 // select device
+  printf("setting ss pin (%d) to output and pulling pin high.\n",lora.ss);
   pinMode(lora.ss,OUTPUT);
   digitalWrite(lora.ss,HIGH);
+
+
   if(lora.reset != -1) {
+    printf("resetting lora device using pin %d.\n",lora.reset);
     pinMode(lora.reset,OUTPUT);
     digitalWrite(lora.reset, LOW);
     delay(10);
@@ -112,20 +117,32 @@ int lora_begin(long frequency)
     delay(10);
   }
 
+printf("starting spi...\n");
   // start SPI
   // ARDUINO STUFF: SPI.begin();
   lora.spi_freq = SPI_FREQ;
   lora.div = spiFrequencyToClockDiv(lora.spi_freq);
-  lora.spi = spiStartBus(VSPI, lora.div, SPI_MODE0, SPI_MSBFIRST);
 
+printf("lora.spi_freq = %d\n",lora.spi_freq);
 printf("lora.div = %d\n",lora.div);
+printf("lora.div 2 freq: %u\n",spiClockDivToFrequency(lora.div));
+
+  lora.spi = spiStartBus(VSPI, lora.div, SPI_MODE0, SPI_MSBFIRST);
+  if(! lora.spi)
+  {
+    printf("lora_begin: spi bus initialisation failed.\n");
+    return 0;
+  }
+
 printf("lora.spi = %p\n",lora.spi);
+printf("attaching CLK(%d), MISO(%d), and MOSI(%d) pins to spi bus.\n",PIN_NUM_CLK,PIN_NUM_MISO,PIN_NUM_MOSI);
 
   spiAttachSCK( lora.spi, PIN_NUM_CLK);
   spiAttachMISO(lora.spi, PIN_NUM_MISO);
   spiAttachMOSI(lora.spi, PIN_NUM_MOSI);
 
   // check version
+printf("checking version");
   uint8_t version = lora_readRegister(REG_VERSION);
   if (version != 0x12) {
     printf("VERSION %02x != 0x12!!!\n",version);

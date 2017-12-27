@@ -31,7 +31,15 @@ void app_main()
     printf("Initialising LoRa...\n");
     lora_init();
     printf("Begin Lora.... 869.500MHz\n");
-    lora_begin(8695E5);
+    int result = lora_begin(8695E5);
+    if(result == 0)
+    {
+        while(true)
+        {
+            printf("FAILED TO INITIALISE RADIO\n");
+            vTaskDelay(2000 / portTICK_PERIOD_MS);
+        }
+    }
     printf("Dump registers.\n");
     lora_dumpRegisters();
     printf("\n\n\n");
