@@ -119,3 +119,35 @@ void ui_display()
     // 64-55 = 9
     ui_end();
 }
+
+void ui_fault(const char *str)
+{
+    Serial.println("Guru Meditation Error");
+    Serial.println(str);
+    Serial.printf("T: %d\n\n\n",millis());
+    int x = 0;
+    while(true)
+    {
+        ui_begin();
+
+        char buffer[32];
+        memset(buffer,0,32);
+        snprintf(buffer,32,"%s",str);
+
+        u8g2.setFont(u8g2_font_profont11_mf);
+        //                 01234567890abcdef0123
+        u8g2.drawStr(0,11,"Guru Meditation Error");
+        u8g2.drawStr(0,22,buffer);
+
+        if(!x)
+            u8g2.drawStr(60,40,":-(");
+
+        snprintf(buffer,32,"T: %d",millis());
+        u8g2.drawStr(0,64,buffer);
+        ui_end();
+    
+        digitalWrite(25,x);
+        delay(1000);
+        x = !x;
+    }
+}

@@ -7,6 +7,6 @@
 
 void ui_init();
 void ui_display();
-
+void ui_fault(const char *str);
 
 #endif // DEBUG
