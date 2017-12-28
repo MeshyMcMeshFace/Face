@@ -1,3 +1,7 @@
 .vscode/**
+.archive/**
 build/**
 sdkconfig.old
+.pioenvs
+.piolibdeps
+.vscode/c_cpp_properties.json

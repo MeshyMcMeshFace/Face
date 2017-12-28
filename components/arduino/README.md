@@ -1,3 +1,0 @@
-# Arduino
-
-Arduino-style helpers
