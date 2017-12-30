@@ -13,7 +13,7 @@
 #define LORA_SF  (10)
 #define LORA_BW (500)
 #define LORA_CR   (4)
-#define LORA_TX   (4)
+#define LORA_TX  (17)
 // 17 = default 50mW
 //  4 = 2.5 mW
 void lora_callback(int count);
@@ -55,6 +55,35 @@ void hw_init()
             digitalWrite(hw_init_data[i].pin, hw_init_data[i].value);
     }
 }
+
+void lora_init()
+{
+    ui_println("Init LORA PINS");
+    LoRa.setPins(LORA_SS,LORA_RST,LORA_DI0);
+
+    ui_println("Start LORA");
+    if(!LoRa.begin(LORA_FREQ))
+    {
+        ui_fault("LoRa Init Failed."); // this never returns.
+    }
+
+    //ui_printf("LORA SF:%d",LORA_SF);
+    //LoRa.setSpreadingFactor(LORA_SF);
+    //ui_printf("LORA CR:%d",LORA_CR);
+    //LoRa.setCodingRate4(LORA_CR);
+    //ui_printf("LORA BW:%d",LORA_BW);
+    //LoRa.setSignalBandwidth(LORA_BW);
+
+    //LoRa.setPreambleLength(10); 
+    //LoRa.setSyncWord(0x5A); // so not to collide with LoRaWAN
+
+    //ui_printf("LORA TX:%ddBm",LORA_TX);
+    //LoRa.setTxPower(LORA_TX);
+
+    //ui_println("Init LORA CRC ON");
+    //LoRa.enableCrc();
+}
+
 void setup() {
     // put your setup code here, to run once:
     Serial.begin(115200);
@@ -67,30 +96,9 @@ void setup() {
     ui_println("Get MAC ADDR");
     ui_println(WiFi.macAddress().c_str());
     WiFi.macAddress(ident);
-    ui_println("Init LORA PINS");
-    LoRa.setPins(LORA_SS,LORA_RST,LORA_DI0);
+    
+    lora_init();
 
-    ui_println("Start LORA");
-    if(!LoRa.begin(LORA_FREQ))
-    {
-        ui_fault("LoRa Init Failed."); // this never returns.
-    }
-
-    ui_printf("LORA SF:%d",LORA_SF);
-    LoRa.setSpreadingFactor(LORA_SF);
-    ui_printf("LORA CR:%d",LORA_CR);
-    LoRa.setCodingRate4(LORA_CR);
-    ui_printf("LORA BW:%d",LORA_BW);
-    LoRa.setSignalBandwidth(LORA_BW);
-
-    ui_printf("LORA TX:%ddBm",LORA_TX);
-    LoRa.setTxPower(LORA_TX);
-
-    ui_println("Init LORA CRC ON");
-    LoRa.enableCrc();
-
-//    LoRa.setPreambleLength(10); ??
-//    LoRa.setSyncWord(0x5A) ??
 
 
     ui_println("Set led(25) to off.");
