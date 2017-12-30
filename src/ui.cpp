@@ -21,6 +21,7 @@ void ui_clear()
     ui_display_data.signal.active =0;
     ui_display_data.wifi.active =0;
     ui_display_data.line=0;
+    ui_display_data.dirty=1;
 }
 
 void ui_diagnostics()
@@ -112,6 +113,7 @@ void ui_bluetooth(int x,int y, int w, int h, float value)
 {
     if (value == 0)
         return;
+    ui_display_data.dirty=true;
     for(int i=1;i <6;i++)
     {
         u8g2.drawLine(
@@ -160,9 +162,12 @@ void ui_draw_arc(float x, float y, float radius, float start, float end, float s
 }
 void ui_wifi(int x, int y, int w, int h, float percent)
 {
+    ui_display_data.dirty=true;
+
     // 5 second filling animation
     if(percent <0 || percent > 1)
         percent = (millis() % 5000) / 5000.0;
+
     int cx = x+ w/2; 
     float r = max(w,h)/2;
     for(float i=2;i<r;i+=4)
@@ -188,6 +193,8 @@ void ui_wifi()
 
 void ui_signal(int x, int y, int w, int h, float percent)
 {
+    ui_display_data.dirty=true;
+
     // 5 second filling animation
     if(percent <0 || percent > 1)
         percent = (millis() % 5000) / 5000.0;
@@ -222,6 +229,8 @@ void ui_signal()
 
 void ui_battery(int x,int y, int w, int h, float percent)
 {
+    ui_display_data.dirty=true;
+
     // 5 second filling animation
     if(percent <0 || percent > 1)
         percent = (millis() % 5000) / 5000.0;
@@ -251,6 +260,9 @@ void ui_battery()
 
 void ui_display()
 {   
+    if(!ui_display_data.dirty)
+        return;
+    
     ui_begin();
     u8g2.setFont(u8g2_font_profont11_mf);
     for(int i=0; i< 5; i++)
@@ -304,6 +316,8 @@ void ui_fault(const char *str)
 
 void ui_println(const char *str,int pause, bool serial_dbg)
 {
+    ui_display_data.dirty=true;
+
     if(ui_display_data.line>=5)
     {
         for(int i=1;i<5;i++)
