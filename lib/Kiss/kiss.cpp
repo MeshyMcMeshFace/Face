@@ -1,12 +1,13 @@
-#include <kiss.h>
+#include "kiss.h"
+#include <LoRa.h>
 
+#define SET_STATUS(t) snprintf(this->status,KISS_STATUS_LEN,t)
+#define SET_STATUSD(t,d) snprintf(this->status,KISS_STATUS_LEN,"%s: %d",t,d);
 
 int KissClass::begin( 
                 size_t mtu,
-                uint8_t dataTag,
                 uint8_t frameEnd,
                 uint8_t frameEscape,
-                uint8_t frameBeginTransposed,
                 uint8_t frameEndTransposed,
                 uint8_t frameEscapeTransposed)
 {
@@ -34,7 +35,8 @@ int KissClass::begin(
         return 0;
     }
 
-    snprintf(this->status,"KISS START")
+    SET_STATUS("KISS START");
+    
     return 1; // all okay.
 }
 
@@ -44,7 +46,7 @@ void KissClass::freeBuffer(kiss_buff_t *buff)
         return;
     if(buff->data)
     {
-        free(buff->data)
+        free(buff->data);
     }
     free(buff);
 }
@@ -52,12 +54,12 @@ void KissClass::freeBuffer(kiss_buff_t *buff)
 kiss_buff_t *KissClass::allocBuffer(int size)
 {
     int len = (size * 2) + 3;
-    kiss_buff_t *buff = malloc(sizeof(kiss_buff_t));
+    kiss_buff_t *buff = (kiss_buff_t *)malloc(sizeof(kiss_buff_t));
 
     if(!buff)
         return nullptr;
     
-    buff->data = malloc(size*2);
+    buff->data = (uint8_t *)malloc(size*2);
 
     if(!buff->data) {
         free(buff);
@@ -85,14 +87,14 @@ void KissClass::end()
 
     this->mtu = 0;
 
-    snprintf(this->status,"KISS ENDED")
+    SET_STATUS("KISS ENDED");
 }
 
 int KissClass::resetBuffer(kiss_buff_t *buff)
 {
     memset(buff->data,0,mtu*2);
     buff->len = 0;
-    buff->has = false;
+    buff->ready = false;
     return 0;
 }
 
@@ -104,7 +106,7 @@ size_t KissClass::getMtu()
 int KissClass::transformToKiss()
 {
     this->inp->data[0] = frameEnd;
-    this->inp->data[1] = dataTag;
+    this->inp->data[1] = 0;
     int p=2;
     for(int i=0;i<  this->tmp->len; i++)
     {
@@ -142,13 +144,11 @@ int KissClass::available()
         return this->inp->len;
     }
     // check that the radio has a packet or not
-    if(!radio->available)
-    {
+    int len = LoRa.available();
+    if(!len)
         return 0;
-    }
     // we don't have anything in the buffer, but there's something in the radio
     // let's retrieve it.
-    int len = radio->available();
     // if too long, eat it.
     if( len >= mtu )
     {
@@ -157,31 +157,27 @@ int KissClass::available()
         return 0;
     }
     // copy radio buffer so we can transform it
-    tmp->len = radio->readBuffer(tmp->data,len);
-    snprintf(this->status,32,"RX %d Bytes",len);
-    return transformToKiss();
+    tmp->len = LoRa.readBytes(tmp->data,len);
+    SET_STATUSD("RX",len);
+    return this->transformToKiss();
 }
 int KissClass::read()
 {
     int r = this->peek();
     this->inp->p++;
     if(r == -1)
-        resetBuffer(this->inp);
+        this->resetBuffer(this->inp);
     return r;
 }
 int KissClass::peek()
 {
     if(this->inp->ready && this->inp->p < this->inp->len)
         return this->inp->data[this->inp->p];
-    this->read = false;
+    this->inp->ready = false;
     return -1;
 }
-bool KissClass::flush()
-{
-    return radio->flush();
-}
 
-    // From Print
+// From Print
 size_t KissClass::write(uint8_t ch)
 {
     // check first char is a frameEnd char.
@@ -189,7 +185,7 @@ size_t KissClass::write(uint8_t ch)
     {
         if(ch != this->frameEnd)
             return 0; // not written
-        this->out->data[p] = ch;
+        this->out->data[this->out->len] = ch;
         this->out->len ++;
         return 1;
     }
@@ -197,7 +193,7 @@ size_t KissClass::write(uint8_t ch)
     {
         if((ch >=0x00 && ch <= 0x06) || ch == 0xFF)
         {
-            this->out->data[p] = ch;
+            this->out->data[this->out->len] = ch;
             this->out->len ++;
             return 1;
         }
@@ -222,7 +218,7 @@ size_t KissClass::write(uint8_t ch)
     }
     if(this->out->ready == true)
     {
-        this->out-ready = false;
+        this->out->ready = false;
         if(ch == this->frameEndTransposed)
         {    
             ch = this->frameEnd;
@@ -240,6 +236,15 @@ size_t KissClass::write(uint8_t ch)
     this->out->len ++;
     return 1;
 }
+size_t KissClass::write(const uint8_t *buffer, size_t size)
+{
+    size_t a;
+    for(int i=0;i< size;i++)
+    {
+        a += this->write(buffer[i]);
+    }
+    return a;
+}
 
 void KissClass::processPacket()
 {
@@ -249,49 +254,49 @@ void KissClass::processPacket()
     if(this->out->len <2)
     {
         this->end();
-        snprintf(this->status,32,"KISS FATAL 01");
+        SET_STATUS("KISS FATAL 01");
         return;
     }
     switch(this->out->data[1])
     {
         case 0x00: // Data packet
-            snprintf(this->status,32,"KISS TX %d",this->out->len-2);
+            SET_STATUSD("KISS TX",this->out->len-2);
             LoRa.beginPacket();
-            LoRa.writeBuffer(this->out->data+2, this->out->len);
-            Lora.endPacket();
+            LoRa.write(this->out->data+2, this->out->len);
+            LoRa.endPacket();
             resetBuffer(this->out);
             break;
         case 0x01: // TX Delay - number of ms before transmitting data
             // TODO: actually set number of preamble chars
-            snprintf(this->status,32,"TXDELAY P %d",10*(int)this->out->data[2]);
+            SET_STATUSD("TXDELAY P",10*(int)this->out->data[2]);
             break;
         case 0x02: // P - The persistence parameter. Persistence=Data*256-1. Used for CSMA.
             // TODO: read up on this.
-            snprintf(this->status,32,"CSMA P %d",10*(int)this->out->data[2]);
+            SET_STATUSD("CSMA P",10*(int)this->out->data[2]);
 
             break;
         case 0x03: // Slot time in 10 ms units. Used for CSMA.
             // TODO: read up on this.
-            snprintf(this->status,32,"SLOT %d",10*(int)this->out->data[2]);
+            SET_STATUSD("SLOT",10*(int)this->out->data[2]);
             break;
         case 0x04: // The length of time to keep the transmitter keyed after sending the data (in 10 ms units).
             // TODO: can we set post-data chars?
-            snprintf(this->status,32,"TXTAIL %d",10*(int)this->out->data[2]);
+            SET_STATUSD("TXTAIL",10*(int)this->out->data[2]);
             break;
         case 0x05: // 0 = half duplex; 1 = full duplex
             // TODO: this doesn't make sense in a LoRa system
             if(this->out->data[2])
-                snprint(this->status,32,"FULL DUPLEX");
+                SET_STATUS("FULL DUPLEX");
             else
-                snprintf(this->status,32,"HALF DUPLEX");
+                SET_STATUS("HALF DUPLEX");
             break;
         case 0x06: // set h/w parameters
             // TODO: what are common settings here?
             // I want to be able to set SF/CF4/BW/TXPower etc.
-            snprintf(this->status,32,"HW PARAM?");
+            SET_STATUS("HW PARAM?");
             break;
         case 0xFF: // Exit KISS mode.
-            snprintf(this->status,32,"KISS EXIT");
+            SET_STATUS("KISS EXIT");
             this->end();
             break;
 
@@ -302,3 +307,5 @@ char *KissClass::getStatus()
 {
     return status;
 }
+
+KissClass Kiss;

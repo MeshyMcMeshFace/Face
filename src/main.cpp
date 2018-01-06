@@ -1,41 +1,57 @@
 #include <Arduino.h>
 #include <LoRa.h>
 
+#include "hw.h"
 #include "ui.h"
+
+#include "kiss.h"
 
 #define LORA_IRQ    (26)
 #define LORA_SS     (18)
 #define LORA_RST    (14)
 #define LORA_DI0    (26)
-#define LORA_FREQ   (8985E5)
+#define LORA_FREQ   (898575E3) 
 
 void setup() {
     // put your setup code here, to run once:
     Serial.begin(115200);
-    Serial.println("Initialising.");
-
-    Serial.println("set pin 25 to output.");
-    pinMode(25,OUTPUT);
-    Serial.println("set led(25) to on.");
-    digitalWrite(25,1);
-    Serial.println("Initialising UI.");
+    
     ui_init();
-    Serial.println("Initialising LORA #1");
+    
+    hw_init();
+
+    ui_println("LORA INIT#1");
     LoRa.setPins(LORA_SS,LORA_RST,LORA_DI0);
-    Serial.println("Initialising LORA #2");
+    ui_println("LORA INIT#2");
     if(!LoRa.begin(LORA_FREQ))
     {
         ui_fault("LoRa Init Failed."); // this never returns.
     }
-    Serial.println("set led(25) to off.");
-    digitalWrite(25,0);
-    Serial.println("Initialised.");
+    ui_println("KISS INIT");
+    Kiss.begin();
+    ui_println("Initialised.");
 }
 
+uint8_t buffer[514];
+int bufflen;
 void loop() {
     // put your main code here, to run repeatedly:
-    ui_display();
-   // LoRa.beginPacket();
-   // LoRa.printf("HELLO: %d\n",millis());
-   // LoRa.endPacket();
+    //ui_display();
+    // LoRa.beginPacket();
+    // LoRa.printf("HELLO: %d\n",millis());
+    // LoRa.endPacket();
+    bufflen = Kiss.available();
+    if(bufflen)
+    {
+        bufflen=Kiss.readBytes(buffer,bufflen);
+        Serial.write(buffer,bufflen);
+        ui_println("%5d TX %4d",millis()%10000,bufflen);
+    }
+    bufflen = Serial.available();
+    if(bufflen)
+    {
+        bufflen=Serial.readBytes(buffer,bufflen);
+        Kiss.write(buffer,bufflen);
+        ui_println("%5d RX %4d",millis()%10000,bufflen);
+    }
 }
