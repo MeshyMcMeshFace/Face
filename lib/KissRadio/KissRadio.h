@@ -100,6 +100,12 @@ virtual bool setValue(uint32_t key, uint32_t value) { return chain->setValue(key
  */
 virtual bool getValue(uint32_t key, uint32_t *value) { return chain->getValue(key,value); }
 
+
+/* Tick()
+ * A function, called regularly to poll devices for those without interrupt driven RX.
+ */
+virtual void Tick() { chain->Tick(); }
+
 private:
     void TransformToKiss(uint8_t *buffer, size_t *len);
     bool TransformFromKiss(uint8_t *buffer, size_t len);

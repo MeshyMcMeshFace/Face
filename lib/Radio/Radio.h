@@ -67,6 +67,12 @@ virtual bool setValue(uint32_t key, uint32_t value) { return true; }
  * returns true on error/unsupported value
  */
 virtual bool getValue(uint32_t key, uint32_t *value) { return true; }
+
+/* Tick()
+ * A function, called regularly to poll devices for those without interrupt driven RX.
+ */
+virtual void Tick() { }
+
 };
 
 #endif
