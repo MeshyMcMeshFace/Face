@@ -1,8 +1,8 @@
 #include "kiss.h"
 #include <LoRa.h>
 
-#define SET_STATUS(t) snprintf(this->status,KISS_STATUS_LEN,t)
-#define SET_STATUSD(t,d) snprintf(this->status,KISS_STATUS_LEN,"%s: %d",t,d);
+#define SET_STATUS(t) { snprintf(this->status,KISS_STATUS_LEN,t); this->status_changed = true; }
+#define SET_STATUSD(t,d) { snprintf(this->status,KISS_STATUS_LEN,"%s: %d",t,d); this->status_changed = true; }
 
 int KissClass::begin( 
                 size_t mtu,
@@ -285,10 +285,12 @@ void KissClass::processPacket()
             break;
         case 0x05: // 0 = half duplex; 1 = full duplex
             // TODO: this doesn't make sense in a LoRa system
-            if(this->out->data[2])
+            if(this->out->data[2]) {
                 SET_STATUS("FULL DUPLEX");
-            else
+            }
+            else {
                 SET_STATUS("HALF DUPLEX");
+            }
             break;
         case 0x06: // set h/w parameters
             // TODO: what are common settings here?
@@ -305,7 +307,13 @@ void KissClass::processPacket()
 
 char *KissClass::getStatus()
 {
+    this->status_changed = false;
     return status;
+}
+
+bool KissClass::hasStatusChanged()
+{
+    return this->status_changed;
 }
 
 KissClass Kiss;

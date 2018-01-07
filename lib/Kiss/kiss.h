@@ -36,7 +36,8 @@ public:
     bool isOkay();
 
     char *getStatus();
-
+    bool hasStatusChanged();
+    
 private:
     kiss_buff_t *allocBuffer(int size);
     void freeBuffer(kiss_buff_t *buff);

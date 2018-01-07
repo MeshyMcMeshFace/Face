@@ -82,7 +82,7 @@ void ui_diagnostics()
 
 void ui_init()
 {
-    Serial.println("UI init");
+    //Serial.println("UI init");
     u8g2.begin();
 
     //ui_diagnostics();
