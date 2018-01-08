@@ -10,6 +10,7 @@ void hw_init()
     hw_led_on();    
     ui_println("PIN 0/PGM INPUT");
     pinMode(0,INPUT);
+    /*
     ui_println("PRESS PGM FOR SHOW");
     unsigned long done = millis() + 5000;
     while(done > millis())
@@ -19,6 +20,7 @@ void hw_init()
             ui_diagnostics();
         }
     }
+    */
     ui_println("HW_INIT DONE.");
 }
 bool hw_is_pgm_down()

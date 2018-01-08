@@ -2,6 +2,8 @@
 #define KISSRADIO_H
 
 #include "Radio.h"
+#include <stdio.h>
+#include "ui.h"
 
 class KissRadioClass : public RadioClass {
 private:
@@ -49,7 +51,7 @@ virtual bool   getAddress(uint8_t *buffer) { return chain->getAddress(buffer); }
  * Check if we can Recv data.
  * return false if no data is waiting.
  */
-virtual bool canRecv() { return chain->canRecv(); }
+virtual bool canRecv() { ui_printf("?R %d",chain->canRecv());return chain->canRecv(); }
 
 /* recv()
  * Get the data waiting in the queue.
@@ -76,7 +78,7 @@ virtual bool recv(uint8_t *src,
  * check if there's enough queue space to send.
  * return false, if there's no space
  */
-virtual bool canSend() { return chain->canSend(); }
+virtual bool canSend() { ui_printf("?S %d",chain->canSend());return chain->canSend(); }
 
 /* Send()
  * put the data in the send queue.
@@ -105,6 +107,11 @@ virtual bool getValue(uint32_t key, uint32_t *value) { return chain->getValue(ke
  * A function, called regularly to poll devices for those without interrupt driven RX.
  */
 virtual void Tick() { chain->Tick(); }
+
+virtual char * Name() { 
+    snprintf((char*)this->buff,500,"KISS/%s",chain->Name());
+    return (char*)this->buff;
+ }
 
 private:
     void TransformToKiss(uint8_t *buffer, size_t *len);

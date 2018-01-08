@@ -73,6 +73,10 @@ virtual bool getValue(uint32_t key, uint32_t *value) { return true; }
  */
 virtual void Tick() { }
 
+char x[4] = "NIL";
+
+virtual char * Name() { return x; }
+
 };
 
 #endif

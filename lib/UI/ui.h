@@ -22,7 +22,7 @@ void ui_diagnostics();
 void ui_init();
 void ui_display();
 void ui_fault(const char *str);
-void ui_println(const char *str="",int pause=0,bool serial_dbg=false);
+void ui_println(const char *str="",int pause=1000,bool serial_dbg=true);
 void ui_printf(const char *fmt, ...);
 
 

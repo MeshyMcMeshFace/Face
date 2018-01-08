@@ -44,7 +44,7 @@ virtual bool   getAddress(uint8_t *buffer) { return false; }
  * Check if we can Recv data.
  * return false if no data is waiting.
  */
-virtual bool canRecv() { return isReady; }
+virtual bool canRecv() { return this->isReady; }
 
 /* recv()
  * Get the data waiting in the queue.
@@ -58,6 +58,7 @@ virtual bool recv(uint8_t *src,
                     size_t *len,
                     int *rssi,
                     float *snr) { 
+ui_printf("RECV %d",canRecv());
     // nothing sent, nothing to recv
     if(!canRecv())
         return false;
@@ -84,8 +85,10 @@ virtual bool canSend() { return !this->isReady; }
  * returns false if we cannot send.
  */
 virtual bool Send(uint8_t *dest, uint8_t *buffer, size_t len) { 
+ui_printf("SEND %d",canSend());
     if(!canSend())
         return false;
+ui_printf("SEND LEN %d",len);
     // avoid buffer overflow.
     if(len >= this->mtu)
         return false;
@@ -93,6 +96,7 @@ virtual bool Send(uint8_t *dest, uint8_t *buffer, size_t len) {
     memcpy(this->buff,buffer,len);
     this->buffLen = len;
     this->isReady = true;
+ui_printf("SEND ?%d/%d/%d",canSend(),canRecv(),this->isReady);
     return true;
  }
 
@@ -113,6 +117,8 @@ virtual bool getValue(uint32_t key, uint32_t *value) { return true; }
  * A function, called regularly to poll devices for those without interrupt driven RX.
  */
 virtual void Tick() { /* no-op */ }
+char name[5] = "LOOP";
+virtual char * Name() { return name; }
 
 };
 

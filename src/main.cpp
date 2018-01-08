@@ -44,6 +44,9 @@ void setup() {
     ui_println("new KissRadio");
     kiss = new KissRadioClass(loopback);
 
+    ui_printf("$L %s",loopback->Name());
+    ui_printf("$K %s",kiss->Name());
+
     ui_println("Initialised.");
     WiFi.begin();
     ui_println(WiFi.macAddress().c_str());
