@@ -68,6 +68,7 @@ virtual bool recv(uint8_t *src,
     // perfect reception
     *rssi = 0;
     *snr = 100;
+    this->isReady = false;
     return true;
 }
 
@@ -76,7 +77,7 @@ virtual bool recv(uint8_t *src,
  * return false, if there's no space
  */
 // can't send if you've not recv'd
-virtual bool canSend() { return ! this->isReady; }
+virtual bool canSend() { return !this->isReady; }
 
 /* Send()
  * put the data in the send queue.
@@ -91,6 +92,7 @@ virtual bool Send(uint8_t *dest, uint8_t *buffer, size_t len) {
     memset(this->buff,0,this->mtu);
     memcpy(this->buff,buffer,len);
     this->buffLen = len;
+    this->isReady = true;
     return true;
  }
 

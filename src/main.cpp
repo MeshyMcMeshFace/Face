@@ -87,6 +87,7 @@ void loop() {
             memset((void *)send,0,514);
             slen = 0;
             hw_led_toggle();
+            ui_printf("TEST? %d", kiss->canRecv());
         }
     }
     if(kiss->canRecv())
