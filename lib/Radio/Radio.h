@@ -54,7 +54,7 @@ virtual bool canSend() { return false; }
  * put the data in the send queue.
  * returns false if we cannot send.
  */
-virtual bool Send(uint8_t *dest, uint8_t *buffer, size_t len) { return false; }
+virtual bool send(uint8_t *dest, uint8_t *buffer, size_t len) { return false; }
 
 /* setValue()
  * sets radio-specific setting to specific value
